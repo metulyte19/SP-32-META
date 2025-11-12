@@ -1,17 +1,10 @@
-/*
- * This ESP32 code is created by esp32io.com
- *
- * This ESP32 code is released in the public domain
- *
- * For more detail (instruction and wiring diagram), visit https://esp32io.com/tutorials/esp32-dht11
- */
-
-#include <DHT.h>
+#include <Arduino.h>
 #include <WiFi.h>
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
-#define DHT11_PIN  27 // ESP32 pin GPIO21 connected to DHT11 sensor
+#include <DHT.h>
 
+// ----------- WiFi and Adafruit IO Setup ------------
 #define WLAN_SSID       "RaigosiPhone"        // your WiFi SSID
 #define WLAN_PASS       "raganius"      // your WiFi password
 
@@ -20,9 +13,12 @@
 #define AIO_USERNAME    "Raganius7"   // your Adafruit username
 #define AIO_KEY         ""  // your Adafruit IO key
 
+// ----------- DHT11 Setup ------------
+#define DHTPIN 21
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
 
-DHT dht11(DHT11_PIN, DHT11);
-
+// ----------- MQTT Setup ------------
 WiFiClient client;
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
 
@@ -33,6 +29,7 @@ Adafruit_MQTT_Publish humidityFeed    = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAM
 void MQTT_connect();
 
 void setup() {
+  Serial.begin(115200);
   delay(10);
   Serial.println("Connecting to WiFi...");
   Serial.print (WLAN_SSID);
@@ -50,41 +47,25 @@ void setup() {
   dht.begin();
 }
 
-void setup() {
-  Serial.begin(9600);
-  dht11.begin(); // initialize the DHT11 sensor
-}
-
 void loop() {
-  // read humidity
-  float humi  = dht11.readHumidity();
-  // read temperature in Celsius
-  float tempC = dht11.readTemperature();
-  // read temperature in Fahrenheit
-  float tempF = dht11.readTemperature(true);
+  MQTT_connect();
 
-  // check whether the reading is successful or not
-  if ( isnan(tempC) || isnan(tempF) || isnan(humi)) {
-    Serial.println("Failed to read from DHT11 sensor!");
-  } else {
-    Serial.print("Humidity: ");
-    Serial.print(humi);
-    Serial.print("%");
+  float humi = dht.readHumidity();
+  float tempC = dht.readTemperature();
 
-    Serial.print("  |  ");
-
-    Serial.print("Temperature: ");
-    Serial.print(tempC);
-    Serial.print("°C  ~  ");
-    Serial.print(tempF);
-    Serial.println("°F");
+  if (isnan(humi) || isnan(tempC)) {
+    Serial.println("Failed to read from DHT sensor!");
+    delay(2000);
+    return;
   }
 
-  // wait a 2 seconds between readings
-  delay(2000);
-}
+  Serial.print("Humidity: ");
+  Serial.print(humi);
+  Serial.print("%  Temperature: ");
+  Serial.print(tempC);
+  Serial.println("°C");
 
-// Publish to Adafruit IO
+  // Publish to Adafruit IO
   if (!temperatureFeed.publish(tempC)) {
     Serial.println("Failed to publish temperature");
   } else {
